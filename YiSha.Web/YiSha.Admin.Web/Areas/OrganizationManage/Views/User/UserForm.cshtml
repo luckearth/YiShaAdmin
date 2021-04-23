@@ -66,20 +66,17 @@
 <script type="text/javascript">
     var id = ys.request("id");
     $(function () {
-
         $("#userStatus").ysRadioBox({ data: ys.getJson(@Html.Raw(typeof(StatusEnum).EnumToDictionaryString())) });
         $("#gender").ysRadioBox({ data: ys.getJson(@Html.Raw(typeof(YiSha.Enum.OrganizationManage.GenderTypeEnum).EnumToDictionaryString())) });
 
         $("#role").ysCheckBox({
             url: '@Url.Content("~/SystemManage/Role/GetListJson")',
-            dataName: "Result",
             key: "Id",
             value: "RoleName"
         });
 
         $("#positionId").ysComboBox({
             url: '@Url.Content("~/OrganizationManage/Position/GetListJson")',
-            dataName: "Result",
             key: "Id",
             value: "PositionName",
             class: "form-control",
@@ -104,7 +101,6 @@
                 email: { email: true}
             }
         });
-
     });
 
     function getForm() {
@@ -116,7 +112,7 @@
                 type: "get",
                 success: function (obj) {
                     if (obj.Tag == 1) {
-                        var result = obj.Result;
+                        var result = obj.Data;
                         $("#form").setWebControls(result);
                     }
                 }

@@ -28,7 +28,7 @@ namespace YiSha.Service.SystemManage
             {
                 list = list.Where(p => p.TableName.Contains(tableName));
             }
-            SetTableDetail(list);
+            await SetTableDetail(list);
             return list.ToList();
         }
 
@@ -45,7 +45,7 @@ namespace YiSha.Service.SystemManage
             }
 
             IEnumerable<TableInfo> list = await this.BaseRepository().FindList<TableInfo>(strSql.ToString(), parameter.ToArray(), pagination);
-            SetTableDetail(list);
+            await SetTableDetail(list);
             return list.ToList();
         }
 
@@ -101,7 +101,7 @@ namespace YiSha.Service.SystemManage
         }
         private async Task SyncSqlServerTable<T>() where T : class, new()
         {
-            string sqlServerConnectionString = "Server=localhost;Database=yisha_admin;User Id=sa;Password=123456;";
+            string sqlServerConnectionString = "Server=localhost;Database=YiShaAdmin;User Id=sa;Password=123456;";
             IEnumerable<T> list = await this.BaseRepository().FindList<T>();
 
             await new SqlServerDatabase(sqlServerConnectionString).Delete<T>(p => true);
@@ -110,38 +110,48 @@ namespace YiSha.Service.SystemManage
         #endregion
 
         #region 私有方法
+
         /// <summary>
         /// 获取所有表的主键、主键名称、记录数
         /// </summary>
+        /// <param name="list"></param>
         /// <returns></returns>
-        private async Task<List<TableInfo>> GetTableDetailList()
+        private async Task<List<TableInfo>> GetTableDetailList(IEnumerable<TableInfo> list)
         {
             string strSql = @"SELECT t1.TABLE_NAME TableName,t1.TABLE_COMMENT Remark,t1.TABLE_ROWS TableCount,t2.CONSTRAINT_NAME TableKeyName,t2.column_name TableKey
-                                     FROM information_schema.TABLES as t1 
-	                                 LEFT JOIN INFORMATION_SCHEMA.`KEY_COLUMN_USAGE` as t2 on t1.TABLE_NAME = t2.TABLE_NAME
+                                     FROM information_schema.TABLES as t1
+                                     LEFT JOIN INFORMATION_SCHEMA.`KEY_COLUMN_USAGE` as t2 on t1.TABLE_NAME = t2.TABLE_NAME
                                      WHERE t1.TABLE_SCHEMA='" + GetDatabase() + "' AND t2.TABLE_SCHEMA='" + GetDatabase() + "'";
-
-            IEnumerable<TableInfo> list = await this.BaseRepository().FindList<TableInfo>(strSql.ToString());
-            return list.ToList();
+            if (list != null && list.Count() > 0)
+            {
+                strSql += " AND t1.TABLE_NAME in(" + string.Join(",", list.Select(p => "'" + p.TableName + "'")) + ")";//生成 Where In 条件
+            }
+            IEnumerable<TableInfo> result = await BaseRepository().FindList<TableInfo>(strSql.ToString());
+            return result.ToList();
         }
 
         /// <summary>
         /// 赋值表的主键、主键名称、记录数
         /// </summary>
         /// <param name="list"></param>
-        private async void SetTableDetail(IEnumerable<TableInfo> list)
+        private async Task SetTableDetail(IEnumerable<TableInfo> list)
         {
-            List<TableInfo> detailList = await GetTableDetailList();
+            List<TableInfo> detailList = await GetTableDetailList(list);
             foreach (TableInfo table in list)
             {
                 table.TableKey = string.Join(",", detailList.Where(p => p.TableName == table.TableName).Select(p => p.TableKey));
-                table.TableKeyName = detailList.Where(p => p.TableName == table.TableName).Select(p => p.TableKeyName).FirstOrDefault();
-                table.TableCount = detailList.Where(p => p.TableName == table.TableName).Select(p => p.TableCount).FirstOrDefault();
+                var tableInfo = detailList.Where(p => p.TableName == table.TableName).FirstOrDefault();
+                if (tableInfo != null)
+                {
+                    table.TableKeyName = tableInfo.TableKeyName;
+                    table.TableCount = tableInfo.TableCount;
+                    table.Remark = tableInfo.Remark;
+                }
             }
         }
         private string GetDatabase()
         {
-            string database = HtmlHelper.Resove(GlobalContext.Configuration.GetSection("DB:ConnectionString").Value.ToLower(), "database=", ";");
+            string database = HtmlHelper.Resove(GlobalContext.SystemConfig.DBConnectionString, "database=", ";");
             return database;
         }
         #endregion

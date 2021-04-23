@@ -7,6 +7,7 @@ using YiSha.Business.Cache;
 using YiSha.Business.OrganizationManage;
 using YiSha.Entity.OrganizationManage;
 using YiSha.Entity.SystemManage;
+using YiSha.Enum;
 using YiSha.Enum.SystemManage;
 using YiSha.Model.Result;
 using YiSha.Service.SystemManage;
@@ -25,13 +26,17 @@ namespace YiSha.Business.SystemManage
         public async Task<TData<List<MenuAuthorizeInfo>>> GetAuthorizeList(OperatorInfo user)
         {
             TData<List<MenuAuthorizeInfo>> obj = new TData<List<MenuAuthorizeInfo>>();
-            obj.Result = new List<MenuAuthorizeInfo>();
-        
+            obj.Data = new List<MenuAuthorizeInfo>();
+
             List<MenuAuthorizeEntity> authorizeList = new List<MenuAuthorizeEntity>();
             List<MenuAuthorizeEntity> userAuthorizeList = null;
             List<MenuAuthorizeEntity> roleAuthorizeList = null;
 
             var menuAuthorizeCacheList = await menuAuthorizeCache.GetList();
+            var menuList = await menuCache.GetList();
+            var enableMenuIdList = menuList.Where(p => p.MenuStatus == (int)StatusEnum.Yes).Select(p => p.Id).ToList();
+
+            menuAuthorizeCacheList = menuAuthorizeCacheList.Where(p => enableMenuIdList.Contains(p.MenuId)).ToList();
 
             // 用户
             userAuthorizeList = menuAuthorizeCacheList.Where(p => p.AuthorizeId == user.UserId && p.AuthorizeType == AuthorizeTypeEnum.User.ParseToInt()).ToList();
@@ -54,10 +59,9 @@ namespace YiSha.Business.SystemManage
                 authorizeList.AddRange(roleAuthorizeList);
             }
 
-            List<MenuEntity> menuList = await menuCache.GetList();
             foreach (MenuAuthorizeEntity authorize in authorizeList)
             {
-                obj.Result.Add(new MenuAuthorizeInfo
+                obj.Data.Add(new MenuAuthorizeInfo
                 {
                     MenuId = authorize.MenuId,
                     AuthorizeId = authorize.AuthorizeId,

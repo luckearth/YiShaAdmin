@@ -36,7 +36,7 @@ namespace YiSha.Service.SystemManage
 
         public async Task<int> GetMaxSort()
         {
-            object result = await this.BaseRepository().FindObject("SELECT MAX(dict_sort) FROM sys_data_dict");
+            object result = await this.BaseRepository().FindObject("SELECT MAX(DictSort) FROM SysDataDict");
             int sort = result.ParseToInt();
             sort++;
             return sort;
@@ -73,7 +73,7 @@ namespace YiSha.Service.SystemManage
         #region 提交数据
         public async Task SaveForm(DataDictEntity entity)
         {
-            var db = this.BaseRepository().BeginTrans();
+            var db = await this.BaseRepository().BeginTrans();
             try
             {
                 if (!entity.Id.IsNullOrZero())
@@ -100,11 +100,11 @@ namespace YiSha.Service.SystemManage
                     await entity.Create();
                     await db.Insert<DataDictEntity>(entity);
                 }
-                await db.Commit();
+                await db.CommitTrans();
             }
             catch
             {
-                db.Rollback();
+                await db.RollbackTrans();
                 throw;
             }
         }

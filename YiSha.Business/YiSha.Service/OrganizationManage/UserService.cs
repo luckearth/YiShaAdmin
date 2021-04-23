@@ -43,6 +43,11 @@ namespace YiSha.Service.OrganizationManage
             return await this.BaseRepository().FindEntity<UserEntity>(id);
         }
 
+        public async Task<UserEntity> GetEntity(string userName)
+        {
+            return await this.BaseRepository().FindEntity<UserEntity>(p => p.UserName == userName);
+        }
+
         public async Task<UserEntity> CheckLogin(string userName)
         {
             var expression = LinqExtensions.True<UserEntity>();
@@ -76,7 +81,7 @@ namespace YiSha.Service.OrganizationManage
 
         public async Task SaveForm(UserEntity entity)
         {
-            var db = this.BaseRepository().BeginTrans();
+            var db = await this.BaseRepository().BeginTrans();
             try
             {
                 if (entity.Id.IsNullOrZero())
@@ -119,28 +124,28 @@ namespace YiSha.Service.OrganizationManage
                         await db.Insert(departmentBelongEntity);
                     }
                 }
-                await db.Commit();
+                await db.CommitTrans();
             }
             catch
             {
-                db.Rollback();
+                await db.RollbackTrans();
                 throw;
             }
         }
 
         public async Task DeleteForm(string ids)
         {
-            var db = this.BaseRepository().BeginTrans();
+            var db = await this.BaseRepository().BeginTrans();
             try
             {
                 long[] idArr = TextHelper.SplitToArray<long>(ids, ',');
                 await db.Delete<UserEntity>(idArr);
                 await db.Delete<UserBelongEntity>(t => idArr.Contains(t.UserId.Value));
-                await db.Commit();
+                await db.CommitTrans();
             }
             catch
             {
-                db.Rollback();
+                await db.RollbackTrans();
                 throw;
             }
         }
@@ -187,7 +192,7 @@ namespace YiSha.Service.OrganizationManage
                 }
                 if (!string.IsNullOrEmpty(param.EndTime.ParseToString()))
                 {
-                    param.EndTime = (param.EndTime.Value.ToString("yyyy-MM-dd") + " 23:59:59").ParseToDateTime();
+                    param.EndTime = param.EndTime.Value.Date.Add(new TimeSpan(23, 59, 59));
                     expression = expression.And(t => t.BaseModifyTime <= param.EndTime);
                 }
                 if (param.ChildrenDepartmentIdList != null && param.ChildrenDepartmentIdList.Count > 0)
